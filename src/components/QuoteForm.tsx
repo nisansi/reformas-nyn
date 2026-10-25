@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { AlertCircle, Check, Loader2, Upload, X } from 'lucide-react';
 import { supabase, isSupabaseConfigured, STORAGE_BUCKET } from '@/lib/supabase';
 import { SERVICES } from '@/lib/constants';
@@ -18,6 +18,9 @@ interface FormState {
 }
 
 type Status = 'idle' | 'submitting' | 'success' | 'error';
+
+// Endpoint público de Formspree (los avisos llegan a Reformasnyn@hotmail.com)
+const FORMSPREE_ENDPOINT = 'https://formspree.io/f/xwllvdaz';
 
 const MAX_FILES = 3;
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -48,6 +51,8 @@ export function QuoteForm({ compact = false, defaultService }: QuoteFormProps) {
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [files, setFiles] = useState<File[]>([]);
   const [fileError, setFileError] = useState<string>('');
+  // Evita duplicar la solicitud en la BD si falla el aviso por correo y se reintenta
+  const savedPhotoUrls = useRef<string[] | null>(null);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -97,46 +102,66 @@ export function QuoteForm({ compact = false, defaultService }: QuoteFormProps) {
         throw new Error('La base de datos aún no está configurada. Mira las instrucciones para conectarla.');
       }
 
-      // Subir fotos de referencia al bucket
-      const photoUrls: string[] = [];
-      for (const file of files) {
-        const ext = file.name.split('.').pop() ?? 'jpg';
-        const path = `quotes/${crypto.randomUUID()}.${ext}`;
-        const { error: upErr } = await supabase.storage
-          .from(STORAGE_BUCKET)
-          .upload(path, file, { upsert: false });
-        if (upErr) throw new Error(`No se pudo subir la imagen: ${upErr.message}`);
-        const { data: pub } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path);
-        photoUrls.push(pub.publicUrl);
-      }
+      let photoUrls = savedPhotoUrls.current;
 
-      // Guardar la solicitud en la tabla quotes
-      const { error: insertErr } = await supabase.from('quotes').insert({
-        name: form.name.trim(),
-        phone: form.phone.trim(),
-        email: form.email.trim() || null,
-        service: form.service,
-        description: form.description.trim(),
-        locality: form.locality.trim() || null,
-        photo_urls: photoUrls,
-      });
+      if (photoUrls === null) {
+        // Subir fotos de referencia al bucket
+        photoUrls = [];
+        for (const file of files) {
+          const ext = file.name.split('.').pop() ?? 'jpg';
+          const path = `quotes/${crypto.randomUUID()}.${ext}`;
+          const { error: upErr } = await supabase.storage
+            .from(STORAGE_BUCKET)
+            .upload(path, file, { upsert: false });
+          if (upErr) throw new Error(`No se pudo subir la imagen: ${upErr.message}`);
+          const { data: pub } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path);
+          photoUrls.push(pub.publicUrl);
+        }
 
-      if (insertErr) throw new Error(`No se pudo guardar la solicitud: ${insertErr.message}`);
-
-      // Llamar a la edge function de email (si está desplegada falla silenciosamente)
-      try {
-        await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-quote`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          },
-          body: JSON.stringify({ ...form, photoUrls }),
+        // Guardar la solicitud en la tabla quotes
+        const { error: insertErr } = await supabase.from('quotes').insert({
+          name: form.name.trim(),
+          phone: form.phone.trim(),
+          email: form.email.trim() || null,
+          service: form.service,
+          description: form.description.trim(),
+          locality: form.locality.trim() || null,
+          photo_urls: photoUrls,
         });
-      } catch {
-        // El envío por email es secundario; la solicitud ya está guardada en la BD.
+
+        if (insertErr) throw new Error(`No se pudo guardar la solicitud: ${insertErr.message}`);
+        savedPhotoUrls.current = photoUrls;
       }
 
+      // Enviar el aviso por correo con Formspree
+      let sent = false;
+      try {
+        const res = await fetch(FORMSPREE_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({
+            _subject: `Nueva solicitud de presupuesto — ${form.service}`,
+            name: form.name.trim(),
+            phone: form.phone.trim(),
+            service: form.service,
+            locality: form.locality.trim(),
+            description: form.description.trim(),
+            photos: photoUrls.join('\n'),
+            ...(form.email.trim() ? { email: form.email.trim() } : {}),
+          }),
+        });
+        sent = res.ok;
+      } catch {
+        sent = false;
+      }
+
+      if (!sent) {
+        throw new Error(
+          'Hemos guardado tu solicitud, pero no hemos podido enviar el aviso por correo. Pulsa "Enviar solicitud de presupuesto" para reintentarlo o contáctanos por teléfono o WhatsApp.',
+        );
+      }
+
+      savedPhotoUrls.current = null;
       setStatus('success');
       setForm({ name: '', phone: '', service: '', description: '', email: '', locality: '' });
       setFiles([]);
@@ -307,4 +332,6 @@ export function QuoteForm({ compact = false, defaultService }: QuoteFormProps) {
       </p>
     </form>
   );
+}
+
 }
