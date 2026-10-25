@@ -1,11 +1,27 @@
 import { useEffect, useState } from 'react';
-import { Link, NavLink } from 'react-router-dom';
+import { Link, NavLink, useLocation } from 'react-router-dom';
 import { Menu, X, Phone } from 'lucide-react';
 import { COMPANY, NAV_LINKS, whatsappLink } from '@/lib/constants';
 
 export function Header() {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const { pathname } = useLocation();
+
+  // Cierra el menú móvil al cambiar de ruta (enlaces, botón atrás/adelante)
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
+
+  // Cierra el menú móvil si la pantalla pasa a tamaño escritorio
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 768px)');
+    const onChange = (e: MediaQueryListEvent) => {
+      if (e.matches) setOpen(false);
+    };
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 16);
@@ -93,12 +109,9 @@ export function Header() {
         </nav>
       </div>
 
-      {/* Menú móvil */}
-      <div
-        className={`md:hidden ${
-          open ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
-        } transition-opacity duration-300`}
-      >
+      {/* Menú móvil: solo se monta cuando está abierto, para que no ocupe espacio dentro del header fijo */}
+      {open && (
+        <div className="max-h-[calc(100dvh-4rem)] overflow-y-auto md:hidden">
         <div className="container-app pb-6">
           <div className="card animate-fade-up p-4">
             <div className="flex flex-col gap-1">
@@ -139,7 +152,10 @@ export function Header() {
             </div>
           </div>
         </div>
-      </div>
+        </div>
+      )}
     </header>
+  );
+}
   );
 }
