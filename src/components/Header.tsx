@@ -55,12 +55,13 @@ export function Header() {
             onClick={() => setOpen(false)}
             aria-label="Reformas N&N — Inicio"
           >
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-700 font-display text-sm font-bold text-white transition-transform group-hover:scale-105 md:h-10 md:w-10 md:text-base">
-              N&amp;N
-            </span>
-            <span className="font-display text-lg font-semibold tracking-tight text-ink-900 md:text-xl">
-              Reformas N&amp;N
-            </span>
+            <img
+              src="/logo-reformas-nyn.jpg"
+              alt="Reformas N&N"
+              width={1142}
+              height={861}
+              className="h-14 w-auto md:h-16"
+            />
           </Link>
 
           {/* Navegación escritorio */}
