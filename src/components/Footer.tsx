@@ -11,12 +11,13 @@ export function Footer() {
         <div className="grid gap-10 md:grid-cols-4">
           {/* Marca */}
           <div className="md:col-span-1">
-            <div className="flex items-center gap-2">
-              <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-700 font-display text-base font-bold text-white">
-                N&amp;N
-              </span>
-              <span className="font-display text-xl font-semibold text-white">Reformas N&amp;N</span>
-            </div>
+            <img
+              src="/logo-reformas-nyn.jpg"
+              alt="Reformas N&N"
+              width={1142}
+              height={861}
+              className="h-auto w-56 max-w-full rounded-lg bg-white"
+            />
             <p className="mt-4 text-sm leading-relaxed text-ink-400">
               Más de {COMPANY.experienceYears} años de experiencia en reformas en {COMPANY.workArea}.
               Presupuesto gratis y sin compromiso.
