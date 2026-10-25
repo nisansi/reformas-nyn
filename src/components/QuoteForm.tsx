@@ -333,5 +333,3 @@ export function QuoteForm({ compact = false, defaultService }: QuoteFormProps) {
     </form>
   );
 }
-
-}
