@@ -1,0 +1,9 @@
+{
+  "projectId": "72370060",
+  "functions": {
+    "send-quote": {
+      "hasChanged": false,
+      "hash": "4d7d5d4f59a136057dc1af2d5f684f6069b0bfb5201960cb03eeab43899a3fd9"
+    }
+  }
+}

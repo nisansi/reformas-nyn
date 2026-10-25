@@ -1,0 +1,6 @@
+# Configuración de Supabase para Bolt
+# Las funciones edge se definen aquí. verify_jwt debe ser false para funciones
+# públicas (webhooks) y true para funciones que requieren sesión.
+
+[functions.send-quote]
+verify_jwt = false
